@@ -11,7 +11,6 @@ import yaml
 
 import generator.markdown_utils as md
 
-
 SOURCE_DIR = "website"
 GENERATED_DIR = "generated"
 TEMPLATES_DIR = "templates"
@@ -24,6 +23,10 @@ def replace_extension(path: str, new_extension: str) -> str:
     Replace the extension of a file with a new one.
     """
     return ".".join(path.split(".")[:-1]) + "." + new_extension
+
+
+def ensure_parent_dir(path: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
 
 
 def add_suffix(path: str, suffix: str) -> str:
@@ -39,11 +42,13 @@ def compile_scss(source_path: str, *, load_path: str) -> None:
     """
     Use SASS to compile a *.scss file into a *.css file.
     """
+    output_path = join(GENERATED_DIR, replace_extension(source_path, "css"))
+    ensure_parent_dir(output_path)
     res = subprocess.run(
         [
             "sass",
             join(SOURCE_DIR, source_path),
-            join(GENERATED_DIR, replace_extension(source_path, "css")),
+            output_path,
             "--load-path",
             join(SOURCE_DIR, load_path),
         ]
@@ -58,7 +63,9 @@ def copy_directory(dir: str) -> None:
 
 
 def copy_file(path: str) -> None:
-    shutil.copy(join(SOURCE_DIR, path), join(GENERATED_DIR, path))
+    output_path = join(GENERATED_DIR, path)
+    ensure_parent_dir(output_path)
+    shutil.copy(join(SOURCE_DIR, path), output_path)
 
 
 TEMPLATES = jinja2.Environment(
@@ -81,7 +88,9 @@ def render_page(path: str, content: dict[str, object]) -> None:
     )
     txt = re.sub(r'href="/', r'href="./', txt)
     txt = re.sub(r'src="/', r'src="./', txt)
-    with open(join(GENERATED_DIR, path), "w") as f:
+    output_path = join(GENERATED_DIR, path)
+    ensure_parent_dir(output_path)
+    with open(output_path, "w") as f:
         f.write(txt)
 
 
@@ -122,6 +131,7 @@ def convert_image(name: str) -> None:
 
 class Generator:
     def build(self) -> None:
+        os.makedirs(GENERATED_DIR, exist_ok=True)
         compile_scss("css/style.scss", load_path="css/style")
         copy_file("css/fonts.css")
         copy_file(".htaccess")
